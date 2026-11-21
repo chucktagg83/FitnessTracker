@@ -27,6 +27,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlin.math.sqrt
+// Class 2
+import android.graphics.Color
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Button
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.viewinterop.AndroidView
+import com.github.mikephil.charting.charts.BarChart
+import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.data.BarData
+import com.github.mikephil.charting.data.BarDataSet
+import com.github.mikephil.charting.data.BarEntry
 
 @SuppressLint ("SetTextI18n")
 class MainActivity : ComponentActivity(), SensorEventListener {
@@ -53,6 +65,12 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     private var baselineZ = 9.8f
 
+    // MPAndroidChart is a View, not a composable
+    private lateinit var barChart: BarChart
+
+    // sample data for the chart
+    private val hourlySteps = floatArrayOf(1000f, 1200f, 0f, 800f)
+
     companion object {
         private const val STATIONARY_THRESHOLD = 2.0f
         private const val WALKING_THRESHOLD = 12.0f
@@ -68,7 +86,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                     FitnessTrackerScreen(
                         motionText = motionText,
                         gyroText = gyroText,
-                        directionText = directionText
+                        directionText = directionText,
+                        onRefreshChartClick = { setupChart() },
+                        onChartCreated = { chart -> barChart = chart; setupChart() }
                     )
                 }
             }
@@ -177,11 +197,45 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         d < 225             -> "S" // 135-224
         else                -> "W" // 225-314
     }
+
+    private fun setupChart() {
+        val entries = hourlySteps.mapIndexed { index, value ->
+            BarEntry(index.toFloat(), value)
+        }
+
+        val dataSet = BarDataSet(entries, "Steps").apply {
+            color = Color.GRAY
+            // ASSIGNMENT 2
+            // -- Step 1 of 2 -- Implement this!
+            // Set the size of the value labels (the numbers above each bar)
+            // to 10f.
+            valueTextSize = 10f
+        }
+
+        barChart.apply {
+            data = BarData(dataSet)
+            // ASSIGNMENT 2 -- Step 2 of 2 -- Implement this!
+            // Set the chart's description text to "Step Count per Hour".
+            description.text = "Step Count per Hour"
+            xAxis.position = XAxis.XAxisPosition.BOTTOM
+            xAxis.granularity = 1f
+
+            axisRight.isEnabled = false
+
+            setFitBars(true)
+
+            animateY(800)
+
+            invalidate()
+        }
+    }
 }
 
 
 @Composable
-fun FitnessTrackerScreen(motionText: String, gyroText: String, directionText: String) {
+fun FitnessTrackerScreen(motionText: String, gyroText: String, directionText: String,
+                         onRefreshChartClick: () -> Unit,
+                         onChartCreated: (BarChart) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -191,5 +245,19 @@ fun FitnessTrackerScreen(motionText: String, gyroText: String, directionText: St
         Text(text = motionText, fontSize = 20.sp, modifier = Modifier.padding(20.dp))
         Text(text = gyroText, fontSize = 16.sp, modifier = Modifier.padding(20.dp))
         Text(text = directionText, fontSize = 16.sp, modifier = Modifier.padding(20.dp))
+
+        // MPAndroid BarChart - androidView bridges a legacy View into compose
+        AndroidView(factory = { ctx -> BarChart(ctx).also(onChartCreated) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(280.dp)
+                .padding(bottom = 16.dp)
+            )
+        Button(onClick = onRefreshChartClick, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            Text("Refresh Chart")
+        }
+
     }
+
+
 }
